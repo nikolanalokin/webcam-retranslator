@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <img id="stream" src="/stream" alt="">
+
+    <button id="kill">KILL</button>
+
+    <script>
+        const stream = document.getElementById('stream')
+        const kill = document.getElementById('kill')
+
+        stream.addEventListener('load', (evt) => {
+            console.log('load', evt)
+        })
+
+        stream.addEventListener('error', (evt) => {
+            console.log('error', evt)
+        })
+
+        stream.addEventListener('stalled', (evt) => {
+            console.log('stalled', evt)
+        })
+
+        stream.addEventListener('suspend', (evt) => {
+            console.log('suspend', evt)
+        })
+
+        kill.addEventListener('click', () => {
+            fetch('/kill')
+        })
+
+        setInterval(() => {
+            if (stream.complete && !stream.naturalHeight) {
+                console.log('error')
+            }
+        }, 200)
+    </script>
+</body>
+
+</html>
