@@ -20,17 +20,25 @@
 <body>
     <canvas id="stream"></canvas>
 
-    <button id="kill">KILL</button>
+    <div>
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
+    </div>
 
     <script>
-        const stream = document.getElementById('stream')
-        const kill = document.getElementById('kill')
+        const stream_el = document.getElementById('stream')
+        const start_el = document.getElementById('start')
+        const stop_el = document.getElementById('stop')
 
-        const context = stream.getContext('2d')
-
-        kill.addEventListener('click', () => {
-            fetch('/kill')
+        start_el.addEventListener('click', () => {
+            fetch('/start')
         })
+
+        stop_el.addEventListener('click', () => {
+            fetch('/stop')
+        })
+
+        const context = stream_el.getContext('2d')
 
         const ws = new WebSocket('ws://localhost:3000')
 
@@ -40,26 +48,37 @@
             console.log('ws [open]')
         }
 
+        const frame = new Image()
+
+        frame.onload = function () {
+            if (context.canvas.width != frame.width) {
+                context.canvas.width = frame.width
+            }
+
+            if (context.canvas.height != frame.height) {
+                context.canvas.height = frame.height
+            }
+
+            context.drawImage(frame, 0, 0)
+
+            URL.revokeObjectURL(frame.src)
+        }
+
         ws.onmessage = function (evt) {
-            const arrayBufferView = new Uint8Array(event.data)
+            if (typeof evt.data === 'string') {
+                if (evt.data === 'start') stream_el.style.opacity = 1
+                if (evt.data === 'end') stream_el.style.opacity = 0
+                return
+            }
+
+            const arrayBufferView = new Uint8ClampedArray(evt.data)
+
             const blob = new Blob([arrayBufferView], { type: "image/jpeg" })
             const imageUrl = URL.createObjectURL(blob)
+            frame.src = imageUrl
 
-            const img = new Image()
-            img.src = imageUrl
-            img.onload = function () {
-                if (context.canvas.width != img.width) {
-                    context.canvas.width = img.width
-                }
-
-                if (context.canvas.height != img.height) {
-                    context.canvas.height = img.height
-                }
-
-                context.drawImage(img, 0, 0)
-
-                URL.revokeObjectURL(imageUrl)
-            }
+            // const imageData = new ImageData(arrayBufferView)
+            // context.drawImage(imageData, 0, 0)
         }
 
         ws.onclose = function (evt) {

@@ -20,11 +20,23 @@
 <body>
     <img id="stream" src="/stream" alt="">
 
-    <button id="kill">KILL</button>
+    <div>
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
+    </div>
 
     <script>
         const stream = document.getElementById('stream')
-        const kill = document.getElementById('kill')
+        const start_el = document.getElementById('start')
+        const stop_el = document.getElementById('stop')
+
+        start_el.addEventListener('click', () => {
+            fetch('/start')
+        })
+
+        stop_el.addEventListener('click', () => {
+            fetch('/stop')
+        })
 
         stream.addEventListener('load', (evt) => {
             console.log('load', evt)
@@ -40,10 +52,6 @@
 
         stream.addEventListener('suspend', (evt) => {
             console.log('suspend', evt)
-        })
-
-        kill.addEventListener('click', () => {
-            fetch('/kill')
         })
 
         setInterval(() => {
