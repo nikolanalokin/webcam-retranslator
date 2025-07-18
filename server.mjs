@@ -3,6 +3,10 @@ import { spawn } from 'node:child_process'
 import express from 'express'
 import WebSocket, { WebSocketServer } from 'ws'
 
+const isWebm = process.argv[2] === 'webm' ? true : false
+
+console.log('webm enabled', isWebm)
+
 const app = express()
 
 app.use(express.static('./static'))
@@ -10,6 +14,12 @@ app.use(express.static('./static'))
 const server = app.listen(3000, () => {
     console.log('MJPEG stream server listening on port 3000')
 })
+
+// process.on('SIGINT', () => {
+//     console.log('process SIGINT')
+//     webcam.stop()
+//     server.close(() => process.exit(1))
+// })
 
 const wss = new WebSocketServer({ server })
 
@@ -28,10 +38,19 @@ class Webcam extends EventEmitter {
 
         this.ffmpeg = spawn('ffmpeg', [
             '-i', '/dev/video0',
-            '-f', 'mjpeg',
-            '-q:v', '5',
-            '-vf', 'scale=240:-1',
-            '-r', '15',
+
+            ...(isWebm ? [
+                '-c:v', 'libvpx', // Кодек VP8
+                '-b:v', '256k',
+                '-vf', 'scale=240:-1',
+                '-f', 'webm',
+            ] : [
+                '-f', 'mjpeg',
+                '-q:v', '5',
+                '-vf', 'scale=240:-1',
+                '-r', '15',
+            ]),
+
             'pipe:1' // Output to stdout
         ])
 
@@ -64,25 +83,46 @@ app.get('/stream', (req, res) => {
     console.log('stream request')
 
     res.writeHead(200, {
-        'Content-Type': 'multipart/x-mixed-replace;boundary=--boundary',
-        'Cache-Control': 'no-cache'
+        'access-control-allow-origin': '*',
+
+        ...(isWebm ? {
+            // 'transfer-encoding': 'chunked',
+            'content-type': 'video/webm',
+            'cache-control': 'no-cache'
+        } : {
+            'content-type': 'multipart/x-mixed-replace;boundary=--boundary',
+            'cache-control': 'no-cache'
+        })
     })
 
     function handleData (data) {
-        res.write('--boundary\r\n')
-        res.write('Content-Type: image/jpeg\r\n')
-        res.write('Content-Length: ' + data.length + '\r\n')
-        res.write('\r\n')
-        res.write(data, 'binary')
-        res.write('\r\n')
+        if (isWebm) {
+            res.write(data, 'binary')
+        } else {
+            res.write('--boundary\r\n')
+            res.write('Content-Type: image/jpeg\r\n')
+            res.write('Content-Length: ' + data.length + '\r\n')
+            res.write('\r\n')
+            res.write(data, 'binary')
+            res.write('\r\n')
+        }
+    }
+
+    function handleEnd () {
+        res.end()
     }
 
     webcam.on('data', handleData)
-    webcam.on('end', () => res.end())
+    webcam.on('end', handleEnd)
 
     function close () {
         webcam.off('data', handleData)
+        webcam.off('end', handleEnd)
+
+        if (isWebm) webcam.stop()
     }
+
+    if (isWebm) webcam.start()
 
     req.on('finish', () => {
         console.log('req finish')
@@ -138,26 +178,6 @@ wss.on('connection', (ws) => {
     })
 })
 
-function createEmitter () {
-    const listeners = new Set()
-    return {
-        emit (value) {
-            for (const cb of listeners) {
-                cb(value)
-            }
-        },
-        subscribe (cb) {
-            listeners.add(cb)
-            return () => {
-                listeners.delete(cb)
-            }
-        },
-        unsubscribeAll () {
-            listeners.clear()
-        },
-    }
+if (!isWebm) {
+    webcam.start()
 }
-
-const mjpeg = createEmitter()
-
-webcam.start()

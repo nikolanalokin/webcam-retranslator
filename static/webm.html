@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+        }
+    </style>
+</head>
+
+<body>
+    <video id="stream" muted playsinline autoplay>
+        <source src="/stream" type="video/webm">
+    </video>
+
+    <div>
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
+    </div>
+
+    <script>
+        const mount = performance.now()
+
+        const stream_el = document.getElementById('stream')
+        const start_el = document.getElementById('start')
+        const stop_el = document.getElementById('stop')
+
+        start_el.addEventListener('click', () => {
+            fetch('/start')
+        })
+
+        stop_el.addEventListener('click', () => {
+            fetch('/stop')
+        })
+
+        stream_el.addEventListener('abort', (evt) => {
+            console.log('abort', evt)
+        })
+        stream_el.addEventListener('canplay', (evt) => {
+            console.log('canplay', evt)
+        })
+        stream_el.addEventListener('canplaythrough', (evt) => {
+            console.log('canplaythrough', evt)
+            console.log(`time from mount to play ${(performance.now() - mount) / 1000}s`)
+        })
+        stream_el.addEventListener('durationchange', (evt) => {
+            console.log('durationchange', evt)
+        })
+        stream_el.addEventListener('emptied', (evt) => {
+            console.log('emptied', evt)
+        })
+        stream_el.addEventListener('encrypted', (evt) => {
+            console.log('encrypted', evt)
+        })
+        stream_el.addEventListener('ended', (evt) => {
+            console.log('ended', evt)
+        })
+        stream_el.addEventListener('error', (evt) => {
+            console.log('error', evt)
+        })
+        stream_el.addEventListener('loadeddata', (evt) => {
+            console.log('loadeddata', evt)
+        })
+        stream_el.addEventListener('loadedmetadata', (evt) => {
+            console.log('loadedmetadata', evt)
+        })
+        stream_el.addEventListener('loadstart', (evt) => {
+            console.log('loadstart', evt)
+        })
+        stream_el.addEventListener('pause', (evt) => {
+            console.log('pause', evt)
+        })
+        stream_el.addEventListener('play', (evt) => {
+            console.log('play', evt)
+        })
+        stream_el.addEventListener('playing', (evt) => {
+            console.log('playing', evt)
+        })
+        stream_el.addEventListener('progress', (evt) => {
+            console.log('progress', evt)
+        })
+        stream_el.addEventListener('ratechange', (evt) => {
+            console.log('ratechange', evt)
+        })
+        stream_el.addEventListener('seeked', (evt) => {
+            console.log('seeked', evt)
+        })
+        stream_el.addEventListener('seeking', (evt) => {
+            console.log('seeking', evt)
+        })
+        stream_el.addEventListener('stalled', (evt) => {
+            console.log('stalled', evt)
+        })
+        stream_el.addEventListener('suspend', (evt) => {
+            console.log('suspend', evt)
+        })
+        stream_el.addEventListener('timeupdate', (evt) => {
+            console.log('timeupdate', evt)
+        })
+        stream_el.addEventListener('volumechange', (evt) => {
+            console.log('volumechange', evt)
+        })
+        stream_el.addEventListener('waiting', (evt) => {
+            console.log('waiting', evt)
+        })
+        stream_el.addEventListener('waitingforkey', (evt) => {
+            console.log('waitingforkey', evt)
+        })
+
+        /*
+        // Используем MediaSource для потокового WebM
+        if (window.MediaSource) {
+            let isStarted = false, isBufferUpdating = false, queue = []
+            let sourceBuffer
+
+            const mediaSource = new MediaSource()
+
+            mediaSource.addEventListener('sourceopen', handleSourceOpen)
+            mediaSource.addEventListener('sourceclose', handleSourceClose)
+            mediaSource.addEventListener('sourceended', handleSourceEnded)
+
+            function handleSourceOpen (evt) {
+                console.log('MediaSource sourceopen', evt)
+
+                sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"')
+
+                console.log('SourceBuffer', sourceBuffer)
+
+                sourceBuffer.mode = 'sequence'
+
+                sourceBuffer.addEventListener('error', (err) => {
+                    console.error('SourceBuffer error', err)
+                    isBufferUpdating = false
+                })
+
+                sourceBuffer.addEventListener('updateend', (evt) => {
+                    console.log('SourceBuffer updateend', evt)
+
+                    if (!stream_el.played) {
+                        console.log(mediaSource.duration)
+                        stream_el.play().then(() => {
+                            console.log('played')
+                        })
+                    }
+
+                    isBufferUpdating = false
+
+                    if (queue.length > 0) {
+                        const data = queue.shift()
+                        try {
+                            isBufferUpdating = true
+                            console.log('SourceBuffer appendBuffer')
+                            sourceBuffer.appendBuffer(data)
+                        } catch (err) {
+                            console.error('Queue append error:', err)
+                            isBufferUpdating = false
+                        }
+                    }
+
+                    // Очистка буфера, если он слишком большой
+                    if (
+                        mediaSource.readyState === 'open' &&
+                        sourceBuffer.buffered.length > 0 &&
+                        sourceBuffer.buffered.end(0) - stream_el.currentTime > 30
+                    ) {
+                        sourceBuffer.remove(0, stream_el.currentTime)
+                    }
+                })
+            }
+
+            function handleSourceClose (evt) {
+                console.log('MediaSource sourceclose', evt)
+
+                URL.revokeObjectURL(stream_el.src)
+            }
+            function handleSourceEnded (evt) {
+                console.log('MediaSource sourceended', evt)
+            }
+
+            stream_el.src = URL.createObjectURL(mediaSource)
+
+            // Получаем поток с сервера и добавляем в видео
+            fetch('/stream')
+                .then(response => {
+                    const reader = response.body.getReader()
+
+                    function readChunk() {
+                        reader.read().then(({ done, value }) => {
+                            console.log(mediaSource.readyState, isBufferUpdating, done, value)
+
+                            if (done) return
+
+                            if (!sourceBuffer || mediaSource.readyState !== 'open') {
+                                queue.push(value.buffer)
+                                readChunk()
+                                return
+                            }
+
+                            if (isBufferUpdating) {
+                                queue.push(value.buffer)
+                                readChunk()
+                                return
+                            }
+
+                            try {
+                                isBufferUpdating = true
+                                console.log('SourceBuffer appendBuffer')
+                                sourceBuffer.appendBuffer(value.buffer)
+                            } catch (err) {
+                                console.error('AppendBuffer error:', err)
+                                queue.push(value.buffer)
+                                isBufferUpdating = false
+                            }
+
+                            readChunk() // Читаем следующий чанк
+                        })
+                    }
+
+                    readChunk()
+                })
+        } else {
+            console.error('MediaSource API не поддерживается!')
+        }
+
+        // stream_el.onend = console.log
+        // stream_el.onerror = console.error
+
+        // stream_el.src = '/stream'
+        // stream_el.load()
+
+        // stream_el.oncanplaythrough = () => {
+        //     console.log('oncanplay')
+        //     stream_el.play()
+        // }
+        */
+    </script>
+</body>
+
+</html>
