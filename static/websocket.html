@@ -64,6 +64,27 @@
             URL.revokeObjectURL(frame.src)
         }
 
+        function drawViaImage (blob) {
+            const imageUrl = URL.createObjectURL(blob)
+            frame.src = imageUrl
+        }
+
+        function drawViaBitmap (blob) {
+            createImageBitmap(blob).then(bitmap => {
+                if (context.canvas.width != bitmap.width) {
+                    context.canvas.width = bitmap.width
+                }
+
+                if (context.canvas.height != bitmap.height) {
+                    context.canvas.height = bitmap.height
+                }
+
+                context.drawImage(bitmap, 0, 0)
+
+                bitmap.close()
+            })
+        }
+
         ws.onmessage = function (evt) {
             if (typeof evt.data === 'string') {
                 if (evt.data === 'start') stream_el.style.opacity = 1
@@ -74,11 +95,9 @@
             const arrayBufferView = new Uint8ClampedArray(evt.data)
 
             const blob = new Blob([arrayBufferView], { type: "image/jpeg" })
-            const imageUrl = URL.createObjectURL(blob)
-            frame.src = imageUrl
 
-            // const imageData = new ImageData(arrayBufferView)
-            // context.drawImage(imageData, 0, 0)
+            // drawViaImage(blob)
+            drawViaBitmap(blob)
         }
 
         ws.onclose = function (evt) {
