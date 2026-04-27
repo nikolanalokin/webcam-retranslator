@@ -2,8 +2,19 @@ import EventEmitter from 'node:events'
 import { spawn } from 'node:child_process'
 import express from 'express'
 import WebSocket, { WebSocketServer } from 'ws'
+import { path as ffmpegBinary } from '@ffmpeg-installer/ffmpeg'
 
 const isWebm = process.argv[2] === 'webm' ? true : false
+
+/** Linux: V4L2 (/dev/video*). macOS: AVFoundation (индекс:аудио, например 0:none). */
+function webcamInputArgs () {
+    if (process.platform === 'darwin') {
+        const device = process.env.WEBCAM_AVFOUNDATION ?? '0:none'
+        return ['-f', 'avfoundation', '-framerate', '30', '-i', device]
+    }
+    const path = process.env.WEBCAM_V4L2 ?? '/dev/video0'
+    return ['-f', 'v4l2', '-i', path]
+}
 
 console.log('webm enabled', isWebm)
 
@@ -36,8 +47,8 @@ class Webcam extends EventEmitter {
 
         this.emit('start')
 
-        this.ffmpeg = spawn('ffmpeg', [
-            '-i', '/dev/video0',
+        this.ffmpeg = spawn(ffmpegBinary, [
+            ...webcamInputArgs(),
 
             ...(isWebm ? [
                 '-c:v', 'libvpx', // Кодек VP8
@@ -48,7 +59,7 @@ class Webcam extends EventEmitter {
                 '-f', 'mjpeg',
                 '-q:v', '5',
                 '-vf', 'scale=240:-1',
-                '-r', '15',
+                '-r', '30',
             ]),
 
             'pipe:1' // Output to stdout
